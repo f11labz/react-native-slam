@@ -1,0 +1,42 @@
+image: docker:latest
+
+cache:
+  paths:
+    - android/app/build/outputs/apk/
+    
+    
+stages:
+  - build
+  - publish
+
+build_android:
+  stage: build
+  image: tanmoy/android-builder:1.0
+  script:
+#    - npm install
+    - npm install --save-dev jetifier jest-environment-enzyme jest-enzyme enzyme-adapter-react-16 react-dom enzyme
+    - npx jetify
+    - react-native link
+    - chmod +x android/gradlew
+    - cd android && ./gradlew assembleDebug
+  only:
+    - master #set trigger for CICD if push or merge in master branch
+  artifacts:
+    paths:
+    - android/app/build/outputs/apk/debug/  # set artifact path which store your APK file
+  tags:
+  - vila1
+  
+publish-apk:
+  stage: publish
+  before_script:  
+  - apk update
+  - apk upgrade
+  - apk add curl
+  tags:
+  - vila1
+  script:
+  # Push jar/war file to Artifactory
+  - curl -H "X-JFrog-Art-Api:$ARTIFACTORY_API_KEY" -X PUT $ARTIFACTORY_URL/$REPO_KEY/$CI_PIPELINE_ID/  -T android/app/build/outputs/apk/debug/app-debug.apk
+  only:
+  - master
